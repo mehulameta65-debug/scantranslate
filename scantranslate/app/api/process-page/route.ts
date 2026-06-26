@@ -16,25 +16,14 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServerClient()
 
-    // Check usage limits
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('pages_used, plan')
-      .eq('id', userId)
-      .single()
-
-    if (profile?.plan === 'free' && (profile?.pages_used || 0) >= 10) {
-      return NextResponse.json({ error: 'Monthly limit reached. Upgrade to Pro.' }, { status: 403 })
-    }
-
-    // Convert image to base64 for Gemini
+    // Convert image to base64 for Gemini — no size limits
     const bytes = await image.arrayBuffer()
     const base64 = Buffer.from(bytes).toString('base64')
-    const mimeType = image.type as 'image/jpeg' | 'image/png' | 'image/webp'
+    const mimeType = (image.type || 'image/jpeg') as 'image/jpeg' | 'image/png' | 'image/webp'
 
     // Upload original to Supabase Storage
-    const fileName = `${userId}/${Date.now()}-${image.name}`
-    const { data: uploadData } = await supabase.storage
+    const fileName = `${userId}/${Date.now()}-${image.name.replace(/\s/g, '-')}`
+    await supabase.storage
       .from('page-images')
       .upload(fileName, bytes, { contentType: mimeType })
 
@@ -42,10 +31,10 @@ export async function POST(req: NextRequest) {
       .from('page-images')
       .getPublicUrl(fileName)
 
-    // Process with Gemini
+    // Process with Gemini 2.0 Flash
     const translatedText = await processImageWithGemini(base64, mimeType, language, subject)
 
-    // Save to pages table
+    // Save to pages table — no usage limits
     const { data: page } = await supabase
       .from('pages')
       .insert({
@@ -57,15 +46,6 @@ export async function POST(req: NextRequest) {
       })
       .select()
       .single()
-
-    // Increment usage
-    await supabase
-      .from('profiles')
-      .upsert({
-        id: userId,
-        pages_used: (profile?.pages_used || 0) + 1,
-        plan: profile?.plan || 'free'
-      })
 
     return NextResponse.json({
       pageId: page?.id,
