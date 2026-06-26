@@ -8,7 +8,7 @@ export async function processImageWithGemini(
   targetLanguage: string,
   subjectTag?: string
 ): Promise<string> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
 
   const prompt = `You are a document processor for Indian competitive exam students.
 The subject/topic is: ${subjectTag || 'General'}.
