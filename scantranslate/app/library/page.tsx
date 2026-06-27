@@ -15,11 +15,13 @@ export default function Library() {
   const [docTitle, setDocTitle] = useState('')
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) { router.push('/login'); return }
-      setUser(data.user)
-      fetchPages(data.user.id)
-    })
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { router.push('/login'); return }
+      setUser(session.user)
+      fetchPages(session.user.id)
+    }
+    checkUser()
   }, [])
 
   const fetchPages = async (userId: string) => {
@@ -36,118 +38,96 @@ export default function Library() {
     setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id])
   }
 
- const handleGenerate = async (format: 'pdf' | 'ppt') => {
-  if (!selected.length) return
-  setGenerating(format)
+  const handleGenerate = async (format: 'pdf' | 'ppt') => {
+    if (!selected.length) return
+    setGenerating(format)
 
-  try {
-    const selectedPages = pages.filter(p => selected.includes(p.id))
-    const title = docTitle || 'ScanTranslate Notes'
+    try {
+      const selectedPages = pages.filter(p => selected.includes(p.id))
+      const title = docTitle || 'ScanTranslate Notes'
 
-    if (format === 'pdf') {
-      // Client-side PDF generation
-      const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib')
+      if (format === 'pdf') {
+        // 100% client-side PDF — no server, no timeout
+        const { jsPDF } = await import('jspdf')
+        const doc = new jsPDF()
 
-      const pdf = await PDFDocument.create()
-      const font = await pdf.embedFont(StandardFonts.Helvetica)
-      const boldFont = await pdf.embedFont(StandardFonts.HelveticaBold)
+        // Cover page
+        doc.setFontSize(24)
+        doc.setTextColor(99, 102, 241)
+        doc.text('ScanTranslate', 20, 30)
 
-      // Cover page
-      const cover = pdf.addPage([595, 842])
-      cover.drawText('ScanTranslate', {
-        x: 50, y: 750, font: boldFont, size: 28,
-        color: rgb(0.39, 0.4, 0.95)
-      })
-      cover.drawText(title, {
-        x: 50, y: 700, font: boldFont, size: 20,
-        color: rgb(0.1, 0.1, 0.1)
-      })
-      cover.drawText(`Generated: ${new Date().toLocaleDateString()}`, {
-        x: 50, y: 670, font, size: 12,
-        color: rgb(0.5, 0.5, 0.5)
-      })
-      cover.drawText(`Total pages: ${selectedPages.length}`, {
-        x: 50, y: 650, font, size: 12,
-        color: rgb(0.5, 0.5, 0.5)
-      })
+        doc.setFontSize(16)
+        doc.setTextColor(30, 30, 30)
+        doc.text(title, 20, 45)
 
-      // Content pages
-      for (const page of selectedPages) {
-        const p = pdf.addPage([595, 842])
-        let y = 792
+        doc.setFontSize(10)
+        doc.setTextColor(150, 150, 150)
+        doc.text(`Generated: ${new Date().toLocaleDateString()}`, 20, 58)
+        doc.text(`Total pages: ${selectedPages.length}`, 20, 66)
 
-        // Subject heading
-        p.drawText(page.subject_tag || 'General', {
-          x: 50, y, font: boldFont, size: 14,
-          color: rgb(0.39, 0.4, 0.95)
-        })
-        y -= 25
+        // Content pages
+        for (const page of selectedPages) {
+          doc.addPage()
+          let y = 20
 
-        // Content
-        const content = (page.translated_text || '')
-          .replace(/\*\*(.*?)\*\*/g, '$1')
-        const lines = content.split('\n')
+          // Subject heading
+          doc.setFontSize(14)
+          doc.setTextColor(99, 102, 241)
+          doc.text(page.subject_tag || 'General', 20, y)
+          y += 12
 
-        for (const line of lines) {
-          if (y < 50) break
-          const words = line.split(' ')
-          let current = ''
-          const wrapped: string[] = []
+          // Divider line
+          doc.setDrawColor(200, 200, 200)
+          doc.line(20, y, 190, y)
+          y += 8
 
-          for (const word of words) {
-            const test = current ? `${current} ${word}` : word
-            if (font.widthOfTextAtSize(test, 11) <= 495) {
-              current = test
-            } else {
-              if (current) wrapped.push(current)
-              current = word
+          // Content text
+          doc.setFontSize(10)
+          doc.setTextColor(40, 40, 40)
+          const content = (page.translated_text || '')
+            .replace(/\*\*(.*?)\*\*/g, '$1')
+          const lines = doc.splitTextToSize(content, 170)
+
+          for (const line of lines) {
+            if (y > 280) {
+              doc.addPage()
+              y = 20
             }
+            doc.text(line, 20, y)
+            y += 6
           }
-          if (current) wrapped.push(current)
 
-          for (const wline of wrapped) {
-            if (y < 50) break
-            p.drawText(wline, {
-              x: 50, y, font, size: 11,
-              color: rgb(0.15, 0.15, 0.15)
-            })
-            y -= 18
-          }
-          y -= 4
+          // Footer
+          doc.setFontSize(8)
+          doc.setTextColor(180, 180, 180)
+          doc.text(`Language: ${page.target_language} · ${new Date(page.created_at).toLocaleDateString()}`, 20, 288)
         }
+
+        // Direct browser download — instant!
+        doc.save(`${title}.pdf`)
+
+      } else {
+        // PPT via API
+        const res = await fetch('/api/generate-ppt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pageIds: selected,
+            title,
+            userId: user.id
+          })
+        })
+        const data = await res.json()
+        if (data.downloadUrl) window.open(data.downloadUrl, '_blank')
       }
 
-      // Download directly in browser
-      const pdfBytes = await pdf.save()
-      const blob = new Blob([pdfBytes], { type: 'application/pdf' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${title}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
-
-    } else {
-      // PPT — still use API
-      const res = await fetch('/api/generate-ppt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pageIds: selected,
-          title,
-          userId: user.id
-        })
-      })
-      const data = await res.json()
-      if (data.downloadUrl) window.open(data.downloadUrl, '_blank')
+    } catch (e: any) {
+      console.error('Generate error:', e)
+      alert('Error: ' + e.message)
+    } finally {
+      setGenerating('')
     }
-  } catch (e: any) {
-    console.error('Generate error:', e)
-    alert('Error generating file: ' + e.message)
-  } finally {
-    setGenerating('')
   }
-}
 
   const deletePage = async (id: string) => {
     await supabase.from('pages').delete().eq('id', id)
@@ -156,16 +136,22 @@ export default function Library() {
   }
 
   const filtered = pages.filter(p =>
-    !search || p.subject_tag?.toLowerCase().includes(search.toLowerCase()) ||
+    !search ||
+    p.subject_tag?.toLowerCase().includes(search.toLowerCase()) ||
     p.translated_text?.toLowerCase().includes(search.toLowerCase())
   )
 
-  if (!user) return <div className="min-h-screen flex items-center justify-center text-gray-400">Loading...</div>
+  if (!user) return (
+    <div className="min-h-screen flex items-center justify-center text-gray-400">
+      Loading...
+    </div>
+  )
 
   return (
     <div className="min-h-screen">
       <Nav userEmail={user.email} />
-      <main className="max-w-5xl mx-auto px-4 py-8">
+      <main className="max-w-5xl mx-auto px-4 py-8 pb-32">
+
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <input
             type="text"
@@ -206,15 +192,17 @@ export default function Library() {
                 onClick={() => toggleSelect(p.id)}
               >
                 {p.image_url && (
-                  <img src={p.image_url} className="w-full h-28 object-cover rounded-lg mb-3" alt="page" />
+                  <img
+                    src={p.image_url}
+                    className="w-full h-28 object-cover rounded-lg mb-3"
+                    alt="page"
+                  />
                 )}
                 <div className="flex justify-between items-start mb-2">
                   <span className="text-xs bg-indigo-900 text-indigo-300 px-2 py-0.5 rounded-full">
                     {p.subject_tag || 'General'}
                   </span>
-                  <span className="text-xs text-gray-600">
-                    {p.target_language}
-                  </span>
+                  <span className="text-xs text-gray-600">{p.target_language}</span>
                 </div>
                 <p className="text-gray-400 text-sm line-clamp-3">
                   {p.translated_text?.replace(/\*\*/g, '').slice(0, 120)}...
@@ -242,15 +230,26 @@ export default function Library() {
 
         {/* Bottom action bar */}
         {selected.length > 0 && (
-          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-800 border border-gray-700 rounded-2xl px-6 py-4 flex items-center gap-4 shadow-2xl">
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-800 border border-gray-700 rounded-2xl px-6 py-4 flex items-center gap-4 shadow-2xl z-50">
             <span className="text-sm text-gray-300">{selected.length} selected</span>
-            <button onClick={() => handleGenerate('pdf')} disabled={!!generating} className="btn-primary">
+            <button
+              onClick={() => handleGenerate('pdf')}
+              disabled={!!generating}
+              className="btn-primary"
+            >
               {generating === 'pdf' ? '⟳ Generating...' : '📄 Download PDF'}
             </button>
-            <button onClick={() => handleGenerate('ppt')} disabled={!!generating} className="btn-secondary">
+            <button
+              onClick={() => handleGenerate('ppt')}
+              disabled={!!generating}
+              className="btn-secondary"
+            >
               {generating === 'ppt' ? '⟳ Generating...' : '📊 Download PPT'}
             </button>
-            <button onClick={() => setSelected([])} className="text-gray-500 text-sm hover:text-gray-300">
+            <button
+              onClick={() => setSelected([])}
+              className="text-gray-500 text-sm hover:text-gray-300"
+            >
               Clear
             </button>
           </div>
