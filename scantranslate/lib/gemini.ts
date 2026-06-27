@@ -20,13 +20,7 @@ export async function processImageWithGemini(
             content: [
               {
                 type: 'text',
-                text: `You are a document processor for students.
-Subject: ${subjectTag || 'General'}.
-1. Extract ALL text from this image.
-2. Translate everything to ${targetLanguage}.
-3. Format as clean structured notes with headings and bullet points.
-4. Bold key terms using **term** syntax.
-Return ONLY the translated content.`
+                text: `You are a document processor for students. Subject: ${subjectTag || 'General'}. 1. Extract ALL text from this image. 2. Translate everything to ${targetLanguage}. 3. Format as clean structured notes with headings and bullet points. 4. Bold key terms using **term** syntax. Return ONLY the translated content.`
               },
               {
                 type: 'image_url',
@@ -41,12 +35,9 @@ Return ONLY the translated content.`
       })
     }
   )
-
   const data = await response.json()
-
   if (!response.ok) {
     throw new Error(data.error?.message || 'Groq API error')
   }
-
   return data.choices[0]?.message?.content || 'No response generated'
 }
