@@ -36,30 +36,118 @@ export default function Library() {
     setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id])
   }
 
-  const handleGenerate = async (format: 'pdf' | 'ppt') => {
-    if (!selected.length || !user) return
-    setGenerating(format)
-    try {
-      const res = await fetch('/api/generate-' + format, {
+ const handleGenerate = async (format: 'pdf' | 'ppt') => {
+  if (!selected.length) return
+  setGenerating(format)
+
+  try {
+    const selectedPages = pages.filter(p => selected.includes(p.id))
+    const title = docTitle || 'ScanTranslate Notes'
+
+    if (format === 'pdf') {
+      // Client-side PDF generation
+      const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib')
+
+      const pdf = await PDFDocument.create()
+      const font = await pdf.embedFont(StandardFonts.Helvetica)
+      const boldFont = await pdf.embedFont(StandardFonts.HelveticaBold)
+
+      // Cover page
+      const cover = pdf.addPage([595, 842])
+      cover.drawText('ScanTranslate', {
+        x: 50, y: 750, font: boldFont, size: 28,
+        color: rgb(0.39, 0.4, 0.95)
+      })
+      cover.drawText(title, {
+        x: 50, y: 700, font: boldFont, size: 20,
+        color: rgb(0.1, 0.1, 0.1)
+      })
+      cover.drawText(`Generated: ${new Date().toLocaleDateString()}`, {
+        x: 50, y: 670, font, size: 12,
+        color: rgb(0.5, 0.5, 0.5)
+      })
+      cover.drawText(`Total pages: ${selectedPages.length}`, {
+        x: 50, y: 650, font, size: 12,
+        color: rgb(0.5, 0.5, 0.5)
+      })
+
+      // Content pages
+      for (const page of selectedPages) {
+        const p = pdf.addPage([595, 842])
+        let y = 792
+
+        // Subject heading
+        p.drawText(page.subject_tag || 'General', {
+          x: 50, y, font: boldFont, size: 14,
+          color: rgb(0.39, 0.4, 0.95)
+        })
+        y -= 25
+
+        // Content
+        const content = (page.translated_text || '')
+          .replace(/\*\*(.*?)\*\*/g, '$1')
+        const lines = content.split('\n')
+
+        for (const line of lines) {
+          if (y < 50) break
+          const words = line.split(' ')
+          let current = ''
+          const wrapped: string[] = []
+
+          for (const word of words) {
+            const test = current ? `${current} ${word}` : word
+            if (font.widthOfTextAtSize(test, 11) <= 495) {
+              current = test
+            } else {
+              if (current) wrapped.push(current)
+              current = word
+            }
+          }
+          if (current) wrapped.push(current)
+
+          for (const wline of wrapped) {
+            if (y < 50) break
+            p.drawText(wline, {
+              x: 50, y, font, size: 11,
+              color: rgb(0.15, 0.15, 0.15)
+            })
+            y -= 18
+          }
+          y -= 4
+        }
+      }
+
+      // Download directly in browser
+      const pdfBytes = await pdf.save()
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${title}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+
+    } else {
+      // PPT — still use API
+      const res = await fetch('/api/generate-ppt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           pageIds: selected,
-          title: docTitle || 'ScanTranslate Notes',
+          title,
           userId: user.id
         })
       })
       const data = await res.json()
-      if (data.downloadUrl) {
-        window.open(data.downloadUrl, '_blank')
-        router.push('/documents')
-      }
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setGenerating('')
+      if (data.downloadUrl) window.open(data.downloadUrl, '_blank')
     }
+  } catch (e: any) {
+    console.error('Generate error:', e)
+    alert('Error generating file: ' + e.message)
+  } finally {
+    setGenerating('')
   }
+}
 
   const deletePage = async (id: string) => {
     await supabase.from('pages').delete().eq('id', id)
