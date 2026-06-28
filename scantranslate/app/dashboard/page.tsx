@@ -5,10 +5,24 @@ import { supabase } from '@/lib/supabase'
 import Nav from '@/components/Nav'
 
 const LANGUAGE_GROUPS = [
-  { group: '🇮🇳 Indian Languages', options: ['English', 'Hindi', 'Hinglish', 'Bengali', 'Tamil', 'Telugu', 'Marathi', 'Gujarati', 'Kannada', 'Malayalam', 'Punjabi', 'Odia', 'Urdu', 'Assamese', 'Sanskrit'] },
-  { group: '🌍 European', options: ['French', 'Spanish', 'German', 'Italian', 'Portuguese', 'Dutch', 'Russian', 'Polish', 'Ukrainian', 'Greek', 'Swedish', 'Norwegian', 'Danish', 'Finnish', 'Czech', 'Romanian'] },
-  { group: '🌏 Asian', options: ['Chinese Simplified', 'Chinese Traditional', 'Japanese', 'Korean', 'Arabic', 'Turkish', 'Persian', 'Thai', 'Vietnamese', 'Indonesian', 'Malay', 'Nepali'] },
-  { group: '🌐 Other', options: ['Swahili', 'Afrikaans', 'Hebrew'] }
+  { group: '🇮🇳 Indian Languages', options: [
+    'English', 'Hindi', 'Hinglish', 'Bengali', 'Tamil',
+    'Telugu', 'Marathi', 'Gujarati', 'Kannada', 'Malayalam',
+    'Punjabi', 'Odia', 'Urdu', 'Assamese', 'Sanskrit'
+  ]},
+  { group: '🌍 European', options: [
+    'French', 'Spanish', 'German', 'Italian', 'Portuguese',
+    'Dutch', 'Russian', 'Polish', 'Ukrainian', 'Greek',
+    'Swedish', 'Norwegian', 'Danish', 'Finnish', 'Czech', 'Romanian'
+  ]},
+  { group: '🌏 Asian', options: [
+    'Chinese Simplified', 'Chinese Traditional', 'Japanese',
+    'Korean', 'Arabic', 'Turkish', 'Persian', 'Thai',
+    'Vietnamese', 'Indonesian', 'Malay', 'Nepali'
+  ]},
+  { group: '🌐 Other', options: [
+    'Swahili', 'Afrikaans', 'Hebrew'
+  ]}
 ]
 
 export default function Dashboard() {
@@ -23,6 +37,8 @@ export default function Dashboard() {
   const [error, setError] = useState('')
   const [dragging, setDragging] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+
+  // Refs for different input modes
   const galleryRef = useRef<HTMLInputElement>(null)
   const cameraRef = useRef<HTMLInputElement>(null)
 
@@ -33,11 +49,16 @@ export default function Dashboard() {
       setUser(session.user)
     }
     checkUser()
+    // Detect mobile
     setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent))
   }, [])
 
   const handleFile = (f: File) => {
-    if (!f.type.startsWith('image/')) { setError('Please upload an image file'); return }
+    if (!f.type.startsWith('image/')) {
+      setError('Please upload an image file (JPG, PNG, WEBP)')
+      return
+    }
+    // No size limit — handle any size
     setFile(f)
     setResult('')
     setError('')
@@ -64,7 +85,11 @@ export default function Dashboard() {
       formData.append('language', language)
       formData.append('subject', subjectTag)
       formData.append('userId', user.id)
-      const res = await fetch('/api/process-page', { method: 'POST', body: formData })
+
+      const res = await fetch('/api/process-page', {
+        method: 'POST',
+        body: formData
+      })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Processing failed')
       setResult(data.translatedText)
@@ -77,59 +102,71 @@ export default function Dashboard() {
     }
   }
 
+  const clearImage = () => {
+    setFile(null)
+    setPreview('')
+    setResult('')
+    setError('')
+  }
+
   if (!user) return (
-    <div className="gradient-bg min-h-screen flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center text-gray-400">
       <div className="text-center">
-        <div className="w-12 h-12 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-        <p className="text-slate-400">Loading...</p>
+        <div className="text-4xl animate-spin mb-4">⟳</div>
+        <p>Loading...</p>
       </div>
     </div>
   )
 
   return (
-    <div className="gradient-bg min-h-screen">
+    <div className="min-h-screen bg-gray-950">
       <Nav userEmail={user.email} />
-      <main className="max-w-3xl mx-auto px-4 py-8 pb-28 relative z-10">
 
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-black mb-2">
-            Translate a <span className="gradient-text">Page</span>
-          </h1>
-          <p className="text-slate-500 text-sm">Take a photo or upload · Any language</p>
+      <main className="max-w-2xl mx-auto px-4 py-6 pb-24">
+
+        {/* Header */}
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-bold text-white">Translate a Page</h1>
+          <p className="text-gray-500 text-sm mt-1">Take a photo or upload from gallery</p>
         </div>
 
-        {/* Upload Area */}
+        {/* Image Upload Area */}
         {!preview ? (
-          <div className="mb-6">
+          <div className="space-y-3 mb-6">
+            {/* Mobile: Camera + Gallery buttons */}
             {isMobile ? (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
+                {/* Live Camera Button */}
                 <button
                   onClick={() => cameraRef.current?.click()}
-                  className="flex flex-col items-center justify-center gap-3 p-8 rounded-2xl border-2 border-dashed border-indigo-500/40 bg-indigo-500/5 hover:bg-indigo-500/10 transition-all"
+                  className="flex flex-col items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl p-6 transition-colors"
                 >
-                  <span className="text-5xl">📸</span>
-                  <div className="text-center">
-                    <p className="font-bold text-indigo-300">Take Photo</p>
-                    <p className="text-xs text-slate-500 mt-1">Opens camera</p>
-                  </div>
+                  <span className="text-4xl">📸</span>
+                  <span className="font-semibold">Take Photo</span>
+                  <span className="text-xs text-indigo-200">Open camera</span>
                 </button>
+
+                {/* Gallery Button */}
                 <button
                   onClick={() => galleryRef.current?.click()}
-                  className="flex flex-col items-center justify-center gap-3 p-8 rounded-2xl border-2 border-dashed border-white/10 bg-white/3 hover:bg-white/5 transition-all"
+                  className="flex flex-col items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 text-white rounded-2xl p-6 transition-colors border border-gray-700"
                 >
-                  <span className="text-5xl">🖼️</span>
-                  <div className="text-center">
-                    <p className="font-bold text-slate-300">Gallery</p>
-                    <p className="text-xs text-slate-500 mt-1">Choose photo</p>
-                  </div>
+                  <span className="text-4xl">🖼️</span>
+                  <span className="font-semibold">Gallery</span>
+                  <span className="text-xs text-gray-400">Choose photo</span>
                 </button>
+
+                {/* Camera input — opens rear camera on mobile */}
                 <input
                   ref={cameraRef}
                   type="file"
                   accept="image/*"
+                  capture="environment"
                   className="hidden"
                   onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])}
                 />
+
+                {/* Gallery input */}
                 <input
                   ref={galleryRef}
                   type="file"
@@ -139,18 +176,21 @@ export default function Dashboard() {
                 />
               </div>
             ) : (
+              /* Desktop: Drag and drop zone */
               <div
                 onDragOver={e => { e.preventDefault(); setDragging(true) }}
                 onDragLeave={() => setDragging(false)}
                 onDrop={handleDrop}
                 onClick={() => galleryRef.current?.click()}
-                className={`border-2 border-dashed rounded-2xl p-16 text-center cursor-pointer transition-all ${
-                  dragging ? 'border-indigo-500 bg-indigo-500/10' : 'border-white/10 hover:border-indigo-500/40 hover:bg-white/3'
+                className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-colors ${
+                  dragging
+                    ? 'border-indigo-500 bg-indigo-500/10'
+                    : 'border-gray-700 hover:border-indigo-600 hover:bg-gray-900'
                 }`}
               >
-                <div className="text-6xl mb-4">📷</div>
-                <p className="text-slate-300 font-semibold text-lg mb-1">Click or drag image here</p>
-                <p className="text-slate-500 text-sm">JPG, PNG, WEBP · Any size</p>
+                <div className="text-5xl mb-4">📷</div>
+                <p className="text-gray-300 font-semibold text-lg">Click or drag image here</p>
+                <p className="text-gray-600 text-sm mt-2">JPG, PNG, WEBP · Any size supported</p>
                 <input
                   ref={galleryRef}
                   type="file"
@@ -162,98 +202,171 @@ export default function Dashboard() {
             )}
           </div>
         ) : (
-          <div className="relative mb-6 rounded-2xl overflow-hidden border border-white/10">
-            <img src={preview} className="w-full max-h-64 object-contain" alt="preview" />
+          /* Image Preview */
+          <div className="relative mb-6 rounded-2xl overflow-hidden bg-gray-900 border border-gray-800">
+            <img
+              src={preview}
+              className="w-full max-h-72 object-contain"
+              alt="Page preview"
+            />
             <button
-              onClick={() => { setFile(null); setPreview(''); setResult('') }}
-              className="absolute top-3 right-3 w-8 h-8 bg-black/60 hover:bg-red-500 rounded-full flex items-center justify-center text-sm transition-all"
-            >✕</button>
-            <div className="absolute bottom-3 left-3 badge">✓ Ready</div>
+              onClick={clearImage}
+              className="absolute top-3 right-3 bg-gray-900/80 hover:bg-red-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm transition-colors"
+            >
+              ✕
+            </button>
+            <div className="absolute bottom-3 left-3 bg-green-600 text-white text-xs px-2 py-1 rounded-full">
+              ✓ Image ready
+            </div>
           </div>
         )}
 
-        {/* Language */}
-        <div className="card-glow mb-4">
-          <label className="text-xs text-slate-500 uppercase tracking-wider font-semibold block mb-2">🌐 Translate to</label>
-          <select value={language} onChange={e => setLanguage(e.target.value)} className="input">
+        {/* Language Selector */}
+        <div className="card mb-4">
+          <label className="text-sm text-gray-400 block mb-2 font-medium">
+            🌐 Translate to
+          </label>
+          <select
+            value={language}
+            onChange={e => setLanguage(e.target.value)}
+            className="input text-base"
+            style={{ fontSize: '16px' }} // prevents iOS zoom on focus
+          >
             {LANGUAGE_GROUPS.map(g => (
               <optgroup key={g.group} label={g.group}>
-                {g.options.map(l => <option key={l} value={l}>{l}</option>)}
+                {g.options.map(l => (
+                  <option key={l} value={l}>{l}</option>
+                ))}
               </optgroup>
             ))}
           </select>
         </div>
 
-        {/* Subject */}
-        <div className="card-glow mb-6">
-          <label className="text-xs text-slate-500 uppercase tracking-wider font-semibold block mb-2">📚 Subject / Topic (optional)</label>
+        {/* Subject Tag */}
+        <div className="card mb-4">
+          <label className="text-sm text-gray-400 block mb-2 font-medium">
+            📚 Subject / Topic <span className="text-gray-600">(optional)</span>
+          </label>
           <input
             type="text"
             className="input"
-            placeholder="e.g. Computer Fundamentals, History..."
+            placeholder="e.g. Computer Fundamentals, Indian History..."
             value={subjectTag}
             onChange={e => setSubjectTag(e.target.value)}
+            style={{ fontSize: '16px' }} // prevents iOS zoom
           />
         </div>
 
+        {/* Error */}
         {error && (
-          <div className="mb-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+          <div className="bg-red-900/30 border border-red-800 text-red-400 text-sm rounded-xl p-3 mb-4">
             ⚠️ {error}
           </div>
         )}
 
-        <button onClick={handleProcess} disabled={!file || loading} className="btn-primary w-full py-4 text-base mb-6">
+        {/* Process Button */}
+        <button
+          onClick={handleProcess}
+          disabled={!file || loading}
+          className="btn-primary w-full py-4 text-lg rounded-2xl mb-6"
+        >
           {loading ? (
-            <>
-              <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+            <span className="flex items-center justify-center gap-2">
+              <span className="animate-spin text-xl">⟳</span>
               Translating with AI...
-            </>
-          ) : '✨ Translate Page'}
+            </span>
+          ) : (
+            <span className="flex items-center justify-center gap-2">
+              ✨ Translate Page
+            </span>
+          )}
         </button>
 
+        {/* Loading state */}
         {loading && (
-          <div className="card-glow text-center py-10 mb-6">
-            <div className="text-5xl mb-4 animate-float">🧠</div>
-            <p className="text-slate-200 font-semibold mb-1">AI is reading your page...</p>
-            <p className="text-slate-500 text-sm">Translating to {language}</p>
-            <div className="flex justify-center gap-2 mt-6">
-              {[0,1,2,3].map(i => (
-                <div key={i} className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: `${i*0.15}s`}} />
+          <div className="card text-center py-8 mb-6">
+            <div className="text-4xl animate-pulse mb-3">🧠</div>
+            <p className="text-gray-300 font-medium">Gemini AI is reading your page...</p>
+            <p className="text-gray-500 text-sm mt-1">Extracting text + translating to {language}</p>
+            <div className="flex justify-center gap-1 mt-4">
+              {[0,1,2].map(i => (
+                <div
+                  key={i}
+                  className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce"
+                  style={{ animationDelay: `${i * 0.15}s` }}
+                />
               ))}
             </div>
           </div>
         )}
 
+        {/* Result */}
         {result && (
-          <div className="card-glow">
-            <div className="flex justify-between items-center mb-4 pb-4 border-b border-white/5">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                <span className="font-bold text-green-400">Translation Complete!</span>
-              </div>
-              <a href="/library" className="text-xs text-indigo-400 border border-indigo-500/30 px-3 py-1.5 rounded-lg hover:bg-indigo-500/10 transition-all">
-                📚 Library →
+          <div className="card mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-green-400 text-lg">✅ Translation Done!</h3>
+              <a
+                href="/library"
+                className="text-indigo-400 text-sm hover:underline font-medium"
+              >
+                Library →
               </a>
             </div>
-            <div className="flex gap-2 mb-4 flex-wrap">
-              <span className="badge">🌐 {language}</span>
-              {subjectTag && <span className="badge">📚 {subjectTag}</span>}
+
+            {/* Language badge */}
+            <div className="flex gap-2 mb-3 flex-wrap">
+              <span className="bg-indigo-900 text-indigo-300 text-xs px-2 py-1 rounded-full">
+                🌐 {language}
+              </span>
+              {subjectTag && (
+                <span className="bg-gray-800 text-gray-300 text-xs px-2 py-1 rounded-full">
+                  📚 {subjectTag}
+                </span>
+              )}
             </div>
+
             <div
-              className="text-slate-300 text-sm leading-relaxed overflow-y-auto max-h-80"
-              dangerouslySetInnerHTML={{ __html: result.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>').replace(/\n/g, '<br/>') }}
+              className="text-gray-300 text-sm leading-relaxed overflow-y-auto max-h-96 border-t border-gray-800 pt-3"
+              dangerouslySetInnerHTML={{
+                __html: result
+                  .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')
+                  .replace(/\n/g, '<br/>')
+              }}
             />
-            <div className="flex gap-3 mt-6 pt-4 border-t border-white/5">
-              <button onClick={() => { setResult(''); setFile(null); setPreview('') }} className="btn-secondary flex-1 text-sm py-2.5">
+
+            {/* Action buttons */}
+            <div className="flex gap-2 mt-4 pt-3 border-t border-gray-800">
+              <button
+                onClick={() => {
+                  setResult('')
+                  setFile(null)
+                  setPreview('')
+                }}
+                className="btn-secondary flex-1 text-sm py-2"
+              >
                 📷 Translate Another
               </button>
-              <a href="/library" className="btn-primary flex-1 text-sm py-2.5">
+              <a href="/library" className="btn-primary flex-1 text-sm py-2 text-center">
                 📚 View Library
               </a>
             </div>
           </div>
         )}
+
+        {/* Tips for mobile */}
+        {!preview && !result && isMobile && (
+          <div className="card mt-4 text-center">
+            <p className="text-gray-500 text-xs leading-relaxed">
+              💡 <strong className="text-gray-400">Tip:</strong> For best results, hold your phone steady,
+              ensure good lighting, and keep the page flat when taking a photo.
+              Works with any page size — A4, A5, textbooks, notebooks.
+            </p>
+          </div>
+        )}
       </main>
+
+      {/* Mobile bottom safe area spacer */}
+      <div className="h-8" />
     </div>
   )
 }
