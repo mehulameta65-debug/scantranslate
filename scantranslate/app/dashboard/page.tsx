@@ -89,14 +89,13 @@ export default function Dashboard() {
   return (
     <div className="gradient-bg min-h-screen">
       <Nav userEmail={user.email} />
-
       <main className="max-w-3xl mx-auto px-4 py-8 pb-28 relative z-10">
-        {/* Header */}
+
         <div className="text-center mb-8">
           <h1 className="text-3xl font-black mb-2">
             Translate a <span className="gradient-text">Page</span>
           </h1>
-          <p className="text-slate-500 text-sm">Take a photo or upload from gallery · Any language</p>
+          <p className="text-slate-500 text-sm">Take a photo or upload · Any language</p>
         </div>
 
         {/* Upload Area */}
@@ -106,26 +105,38 @@ export default function Dashboard() {
               <div className="grid grid-cols-2 gap-4">
                 <button
                   onClick={() => cameraRef.current?.click()}
-                  className="flex flex-col items-center justify-center gap-3 p-8 rounded-2xl border-2 border-dashed border-indigo-500/40 bg-indigo-500/5 hover:bg-indigo-500/10 hover:border-indigo-500/60 transition-all text-center"
+                  className="flex flex-col items-center justify-center gap-3 p-8 rounded-2xl border-2 border-dashed border-indigo-500/40 bg-indigo-500/5 hover:bg-indigo-500/10 transition-all"
                 >
                   <span className="text-5xl">📸</span>
-                  <div>
+                  <div className="text-center">
                     <p className="font-bold text-indigo-300">Take Photo</p>
                     <p className="text-xs text-slate-500 mt-1">Opens camera</p>
                   </div>
                 </button>
                 <button
                   onClick={() => galleryRef.current?.click()}
-                  className="flex flex-col items-center justify-center gap-3 p-8 rounded-2xl border-2 border-dashed border-white/10 bg-white/3 hover:bg-white/5 hover:border-white/20 transition-all text-center"
+                  className="flex flex-col items-center justify-center gap-3 p-8 rounded-2xl border-2 border-dashed border-white/10 bg-white/3 hover:bg-white/5 transition-all"
                 >
                   <span className="text-5xl">🖼️</span>
-                  <div>
+                  <div className="text-center">
                     <p className="font-bold text-slate-300">Gallery</p>
                     <p className="text-xs text-slate-500 mt-1">Choose photo</p>
                   </div>
                 </button>
-                <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])} />
-                <input ref={galleryRef} type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])} />
+                <input
+                  ref={cameraRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])}
+                />
+                <input
+                  ref={galleryRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])}
+                />
               </div>
             ) : (
               <div
@@ -134,27 +145,34 @@ export default function Dashboard() {
                 onDrop={handleDrop}
                 onClick={() => galleryRef.current?.click()}
                 className={`border-2 border-dashed rounded-2xl p-16 text-center cursor-pointer transition-all ${
-                  dragging
-                    ? 'border-indigo-500 bg-indigo-500/10 scale-[1.02]'
-                    : 'border-white/10 hover:border-indigo-500/40 hover:bg-white/3'
+                  dragging ? 'border-indigo-500 bg-indigo-500/10' : 'border-white/10 hover:border-indigo-500/40 hover:bg-white/3'
                 }`}
               >
-                <div className="text-6xl mb-4 animate-float">📷</div>
+                <div className="text-6xl mb-4">📷</div>
                 <p className="text-slate-300 font-semibold text-lg mb-1">Click or drag image here</p>
-                <p className="text-slate-500 text-sm">JPG, PNG, WEBP · Any size supported</p>
-                <input ref={galleryRef} type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])} />
+                <p className="text-slate-500 text-sm">JPG, PNG, WEBP · Any size</p>
+                <input
+                  ref={galleryRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])}
+                />
               </div>
             )}
           </div>
         ) : (
-          <div className="relative mb-6 rounded-2xl overflow-hidden border border-white/10 bg-black/20">
+          <div className="relative mb-6 rounded-2xl overflow-hidden border border-white/10">
             <img src={preview} className="w-full max-h-64 object-contain" alt="preview" />
-            <button onClick={() => { setFile(null); setPreview(''); setResult('') }} className="absolute top-3 right-3 w-8 h-8 bg-black/60 hover:bg-red-500/80 rounded-full flex items-center justify-center text-sm transition-all backdrop-blur-sm">✕</button>
-            <div className="absolute bottom-3 left-3 badge">✓ Image ready</div>
+            <button
+              onClick={() => { setFile(null); setPreview(''); setResult('') }}
+              className="absolute top-3 right-3 w-8 h-8 bg-black/60 hover:bg-red-500 rounded-full flex items-center justify-center text-sm transition-all"
+            >✕</button>
+            <div className="absolute bottom-3 left-3 badge">✓ Ready</div>
           </div>
         )}
 
-        {/* Controls */}
+        {/* Language */}
         <div className="card-glow mb-4">
           <label className="text-xs text-slate-500 uppercase tracking-wider font-semibold block mb-2">🌐 Translate to</label>
           <select value={language} onChange={e => setLanguage(e.target.value)} className="input">
@@ -166,9 +184,16 @@ export default function Dashboard() {
           </select>
         </div>
 
+        {/* Subject */}
         <div className="card-glow mb-6">
-          <label className="text-xs text-slate-500 uppercase tracking-wider font-semibold block mb-2">📚 Subject / Topic <span className="text-slate-600 normal-case">(optional)</span></label>
-          <input type="text" className="input" placeholder="e.g. Computer Fundamentals, Indian History..." value={subjectTag} onChange={e => setSubjectTag(e.target.value)} />
+          <label className="text-xs text-slate-500 uppercase tracking-wider font-semibold block mb-2">📚 Subject / Topic (optional)</label>
+          <input
+            type="text"
+            className="input"
+            placeholder="e.g. Computer Fundamentals, History..."
+            value={subjectTag}
+            onChange={e => setSubjectTag(e.target.value)}
+          />
         </div>
 
         {error && (
@@ -177,22 +202,20 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Translate Button */}
         <button onClick={handleProcess} disabled={!file || loading} className="btn-primary w-full py-4 text-base mb-6">
           {loading ? (
-            <span className="flex items-center gap-3">
+            <>
               <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
               Translating with AI...
-            </span>
+            </>
           ) : '✨ Translate Page'}
         </button>
 
-        {/* Loading Animation */}
         {loading && (
           <div className="card-glow text-center py-10 mb-6">
-            <div className="text-5xl animate-float mb-4">🧠</div>
+            <div className="text-5xl mb-4 animate-float">🧠</div>
             <p className="text-slate-200 font-semibold mb-1">AI is reading your page...</p>
-            <p className="text-slate-500 text-sm">Extracting text + translating to {language}</p>
+            <p className="text-slate-500 text-sm">Translating to {language}</p>
             <div className="flex justify-center gap-2 mt-6">
               {[0,1,2,3].map(i => (
                 <div key={i} className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: `${i*0.15}s`}} />
@@ -201,15 +224,14 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Result */}
         {result && (
           <div className="card-glow">
             <div className="flex justify-between items-center mb-4 pb-4 border-b border-white/5">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <div className="w-2 h-2 bg-green-400 rounded-full"></div>
                 <span className="font-bold text-green-400">Translation Complete!</span>
               </div>
-              <a href="/library" className="text-xs text-indigo-400 hover:text-indigo-300 border border-indigo-500/30 px-3 py-1.5 rounded-lg hover:bg-indigo-500/10 transition-all">
+              <a href="/library" className="text-xs text-indigo-400 border border-indigo-500/30 px-3 py-1.5 rounded-lg hover:bg-indigo-500/10 transition-all">
                 📚 Library →
               </a>
             </div>
@@ -218,14 +240,14 @@ export default function Dashboard() {
               {subjectTag && <span className="badge">📚 {subjectTag}</span>}
             </div>
             <div
-              className="text-slate-300 text-sm leading-relaxed overflow-y-auto max-h-80 pr-2"
+              className="text-slate-300 text-sm leading-relaxed overflow-y-auto max-h-80"
               dangerouslySetInnerHTML={{ __html: result.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>').replace(/\n/g, '<br/>') }}
             />
             <div className="flex gap-3 mt-6 pt-4 border-t border-white/5">
               <button onClick={() => { setResult(''); setFile(null); setPreview('') }} className="btn-secondary flex-1 text-sm py-2.5">
                 📷 Translate Another
               </button>
-              <a href="/library" className="btn-primary flex-1 text-sm py-2.5 text-center">
+              <a href="/library" className="btn-primary flex-1 text-sm py-2.5">
                 📚 View Library
               </a>
             </div>
