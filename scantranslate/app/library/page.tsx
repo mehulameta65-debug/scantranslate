@@ -47,63 +47,87 @@ export default function Library() {
       const title = docTitle || 'ScanTranslate Notes'
 
       if (format === 'pdf') {
-        // 100% client-side PDF — no server, no timeout
         const { jsPDF } = await import('jspdf')
-        const doc = new jsPDF()
+        const html2canvas = (await import('html2canvas')).default
+
+        const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+        const pageWidth = 210
+        const pageHeight = 297
 
         // Cover page
-        doc.setFontSize(24)
+        doc.setFillColor(30, 30, 46)
+        doc.rect(0, 0, pageWidth, pageHeight, 'F')
+        doc.setFontSize(28)
         doc.setTextColor(99, 102, 241)
-        doc.text('ScanTranslate', 20, 30)
+        doc.text('ScanTranslate', 20, 40)
+        doc.setFontSize(18)
+        doc.setTextColor(255, 255, 255)
+        doc.text(title, 20, 58)
+        doc.setFontSize(11)
+        doc.setTextColor(148, 163, 184)
+        doc.text(`Generated: ${new Date().toLocaleDateString()}`, 20, 72)
+        doc.text(`Total pages: ${selectedPages.length}`, 20, 82)
 
-        doc.setFontSize(16)
-        doc.setTextColor(30, 30, 30)
-        doc.text(title, 20, 45)
-
-        doc.setFontSize(10)
-        doc.setTextColor(150, 150, 150)
-        doc.text(`Generated: ${new Date().toLocaleDateString()}`, 20, 58)
-        doc.text(`Total pages: ${selectedPages.length}`, 20, 66)
-
-        // Content pages
+        // For each page — render as HTML image (supports ALL languages)
         for (const page of selectedPages) {
-          doc.addPage()
-          let y = 20
+          // Create hidden div with styled content
+          const div = document.createElement('div')
+          div.style.cssText = `
+            position: fixed;
+            left: -9999px;
+            top: 0;
+            width: 794px;
+            padding: 40px;
+            background: white;
+            font-family: Arial, sans-serif;
+            color: #1a1a1a;
+          `
 
-          // Subject heading
-          doc.setFontSize(14)
-          doc.setTextColor(99, 102, 241)
-          doc.text(page.subject_tag || 'General', 20, y)
-          y += 12
-
-          // Divider line
-          doc.setDrawColor(200, 200, 200)
-          doc.line(20, y, 190, y)
-          y += 8
-
-          // Content text
-          doc.setFontSize(10)
-          doc.setTextColor(40, 40, 40)
+          const subject = page.subject_tag || 'General'
           const content = (page.translated_text || '')
-            .replace(/\*\*(.*?)\*\*/g, '$1')
-          const lines = doc.splitTextToSize(content, 170)
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\n/g, '<br/>')
 
-          for (const line of lines) {
-            if (y > 280) {
-              doc.addPage()
-              y = 20
-            }
-            doc.text(line, 20, y)
-            y += 6
+          div.innerHTML = `
+            <div style="border-bottom: 2px solid #6366f1; padding-bottom: 12px; margin-bottom: 20px;">
+              <h2 style="color: #6366f1; font-size: 20px; margin: 0 0 4px 0;">${subject}</h2>
+              <span style="color: #94a3b8; font-size: 12px;">${page.target_language} · ${new Date(page.created_at).toLocaleDateString()}</span>
+            </div>
+            <div style="font-size: 14px; line-height: 1.8; color: #1a1a1a;">
+              ${content}
+            </div>
+          `
+
+          document.body.appendChild(div)
+
+          // Render div to canvas
+          const canvas = await html2canvas(div, {
+            scale: 1.5,
+            useCORS: true,
+            backgroundColor: '#ffffff',
+            logging: false
+          })
+
+          document.body.removeChild(div)
+
+          // Add new page and embed image
+          doc.addPage()
+          const imgData = canvas.toDataURL('image/jpeg', 0.85)
+          const imgWidth = pageWidth
+          const imgHeight = (canvas.height * imgWidth) / canvas.width
+
+          // If content is taller than page, scale it down
+          if (imgHeight <= pageHeight) {
+            doc.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight)
+          } else {
+            // Scale to fit
+            const scaledHeight = pageHeight
+            const scaledWidth = (canvas.width * scaledHeight) / canvas.height
+            const xOffset = (pageWidth - scaledWidth) / 2
+            doc.addImage(imgData, 'JPEG', xOffset, 0, scaledWidth, scaledHeight)
           }
-
-          // Footer
-          doc.setFontSize(8)
-          doc.setTextColor(180, 180, 180)
-          doc.text(`Language: ${page.target_language} · ${new Date(page.created_at).toLocaleDateString()}`, 20, 288)
         }
 
-        // Direct browser download — instant!
         doc.save(`${title}.pdf`)
 
       } else {
@@ -228,7 +252,6 @@ export default function Library() {
           </div>
         )}
 
-        {/* Bottom action bar */}
         {selected.length > 0 && (
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-800 border border-gray-700 rounded-2xl px-6 py-4 flex items-center gap-4 shadow-2xl z-50">
             <span className="text-sm text-gray-300">{selected.length} selected</span>
